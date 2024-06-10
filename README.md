@@ -1,35 +1,52 @@
-# Surface-board-game
+# Sola-board-game
 
 ## Installation
 
-Install prerequisites
-
+- Connect via SSH to the RPi:
 ```
-sudo apt-get install -y i2c-tools libgpiod-dev python3-smbus python3-pil fonts-dejavu
-```
-
-Enable [I2C](https://learn.adafruit.com/adafruits-raspberry-pi-lesson-4-gpio-setup/configuring-i2c) and SPI
-
-Enable linger for the `hat` user:
-
-```
-sudo systemctl enable-linger hat
+ssh  admin@qudev-rpi-graham-hat.dhcp-int.phys.ethz.ch
 ```
 
-Create a virtual environment
+- Install prerequisites on RPi
 
 ```
-python3 -m venv ~/phdhatenv
+sudo apt-get install -y i2c-tools libgpiod-dev python3-smbus python3-pil fonts-dejavu python3-dev
 ```
 
-Clone this repository to `/home/hat`
+- Enable [I2C](https://learn.adafruit.com/adafruits-raspberry-pi-lesson-4-gpio-setup/configuring-i2c) and SPI
+
+- Enable linger for the `admin` user (ensures not to kill services after logging off):
+
+    ```
+    sudo systemctl enable-linger admin
+    ```
+    EDIT: NL:
+    the command above did not work for me, I used:
+    ```
+    sudo loginctl enable-linger admin
+    ```
+- Create a virtual environment
+
+    ```
+    python3 -m venv ~/phdhatenv
+    ```
+
+- Clone this repository to `/home/admin` (or 
+setup a remote interpreter and FSTP file transfer via 
+PyCharm remote projects).
+
+- Install python package
+    ```
+    cd ~/sola-board-game
+    pip install -e .
+    ```
 
 ## Running
 
 For testing
 
 ```
-sudo /home/hat/phdhatenv/bin/python /home/hat/surface-board-game/src/surface_board_game/main.py
+sudo /home/admin/phdhatenv/bin/python /home/admin/sola-board-game/src/surface_board_game/main.py
 ```
 
 As a systemd service
