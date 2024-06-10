@@ -1,3 +1,5 @@
+# This test file is to test the LCD screen and button functionalities.
+# run this script to verify that all components work correctly.
 # SPDX-FileCopyrightText: 2017 James DeVito for Adafruit Industries
 # SPDX-License-Identifier: MIT
 

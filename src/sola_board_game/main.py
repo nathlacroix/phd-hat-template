@@ -4,9 +4,11 @@ import phdhat
 hat = phdhat.PhDHat()
 
 hat.initial_stage()
-hat.airbridge_stage()
-hat.twpa_stage()
-hat.surface_code_stage()
-keep_playing = hat.play_again()
-while keep_playing:
-    hat.surface_code_stage()
+hat.three_di_stage()
+hat.bio_stage()
+hat.fridge_stage()
+hat.libqudev_stage()
+hat.finish_stage()
+# keep_playing = hat.play_again()
+# while keep_playing:
+#     hat.surface_code_stage()

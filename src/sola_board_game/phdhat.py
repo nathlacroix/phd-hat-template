@@ -11,9 +11,23 @@ import numpy as np
 from PIL import ImageFont, ImageDraw, Image
 
 
-PI_PIN_NEOPIXELS = board.D18
-PI_PIN_AIRBRIDGE = board.D25
-PI_NEOPIXEL_COUNT = 21
+
+PI_PIN_SOLA_3DI = board.D13
+PI_PIN_3DI = board.D19
+
+PI_PIN_SOLA_BIO = board.D26
+PI_PIN_NEOPIXELS = board.D21
+
+PI_PIN_SOLA_FRIDGE = board.D20
+PI_PIN_FRIDGE = board.D16
+
+PI_PIN_SOLA_LIBQ = board.D12
+PI_PIN_LIBQ1 = board.D25
+PI_PIN_LIBQ2 = board.D24
+
+PI_PIN_EXTRA = board.D18
+
+PI_NEOPIXEL_COUNT = 5
 FONTPATH = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 # Tick rate for sleeping between checking the buttons, 60 Hz
 FRAME_TIME = 1.0/60.0
@@ -159,7 +173,26 @@ class PhDHat:
         self.button_d = DigitalInOut(board.D22)
         # Joystick center button
         self.button_c = DigitalInOut(board.D4)
-        self.airbridge_input = DigitalInOut(PI_PIN_AIRBRIDGE)
+
+        # SOLA IO
+        self.sola_three_di_input = DigitalInOut(PI_PIN_SOLA_3DI)
+        self.sola_bio_input = DigitalInOut(PI_PIN_SOLA_BIO)
+        # could directly provide power to IC circuit ?
+        self.sola_fridge_input = DigitalInOut(PI_PIN_SOLA_FRIDGE)
+        self.sola_libqudev_input = DigitalInOut(PI_PIN_SOLA_LIBQ)
+
+        # 3Di IO
+        self.three_di_input = DigitalInOut(PI_PIN_3DI)
+
+        # LibQudev IO
+        self.libqudev01_input = DigitalInOut(PI_PIN_LIBQ1)
+        self.libqudev02_input = DigitalInOut(PI_PIN_LIBQ2)
+
+        # Bio IOs
+        # none
+
+        # Fridge IOs
+        self.fridge_input = DigitalInOut(PI_PIN_FRIDGE)
 
         inputs = [
             self.button_a,
@@ -169,7 +202,13 @@ class PhDHat:
             self.button_u,
             self.button_d,
             self.button_c,
-            self.airbridge_input,
+            self.sola_three_di_input,
+            self.sola_bio_input,
+            self.sola_fridge_input,
+            self.sola_libqudev_input,
+            self.libqudev01_input,
+            self.libqudev02_input,
+            self.fridge_input
         ]
         for inp in inputs:
             inp.direction = Direction.INPUT
@@ -325,16 +364,17 @@ class PhDHat:
             else:
                 time.sleep(FRAME_TIME)
 
-    def airbridge_stage(self):
+    def three_di_stage(self):
         # Display message
         self._display_text_on_screen(
-            "1. Finish\nfabricating\nthe airbridges",
+            "1. Fix flip-chip hat",
             sleep=3
         )
         self.pixels.fill((0, 0, 0))
+
         while True:
-            # If airbridge connection made (value brought low)
-            if not self.airbridge_input.value:
+            # If 3di connection made (value brought low)
+            if not self.three_di_input.value:
                 return
             # bypass If A and B pressed (brought low)
             elif self.check_bypasses():
@@ -342,84 +382,72 @@ class PhDHat:
             else:
                 time.sleep(FRAME_TIME)
 
-    def twpa_stage(self):
+    def bio_stage(self):
         # Light all LEDs yellow to match the figure
-        for led_key in self.led_indices:
-            self.pixels[self.led_indices[led_key]] = (128, 128, 0)
+        # for led_key in self.led_indices:
+        #     self.pixels[self.led_indices[led_key]] = (128, 128, 0)
         # Display message
         self._display_text_on_screen(
-            "2. Tune\nthe TWPA", sleep=3,
+            "2. Tune\nQubit frequencies", sleep=3,
         )
-        # Optional: light up LEDs of data qubits in a dim way on readout line
-        # with the twpa.
+        success = False
+
+        while not success:
+            # @sasha, write code here
+
+
+            time.sleep(FRAME_TIME)
+            success = self.check_bypasses()
+
+
 
         # twpa optimization
         # params = dict(power=8.5, freq=7.90)  # easy ones
-        params = dict(power=8.0, freq=8.03)  # hard ones
-        target_gain = 20
-        fact = 40/12.13
-        success = False
-        while not success:
-            text = (f"Pump parameters\n"
-                    f"Power (U/D): {params['power']:.1f} dBm\n"
-                    f"Freq.   (L/R): {params['freq']:.2f} GHz")
-            gain, toomuchnoise = self.twpa_optimization(
-                params['power'], params['freq'])
-            self.pixels.fill((0, 0, 0))
-            if not toomuchnoise:
-                color = (int(15*gain), int(15*gain), 0)
-                self.pixels.fill(color)
-            else:
-                for i in range(len(self.pixels)):
-                    color = [random.randrange(255) for i in range(3)]
-                    self.pixels[i] = color
-            self._display_text_on_screen(
-                text, position=(64, 20), font_size=11)
-            # multiplicative factor such that 20 dB at "optimal" twpa parameters i.e. 9 dbm and 7.91 GHz
-            text = f"Gain: {gain * fact:.2f} dB"
-            self._display_text_on_screen(
-                text,
-                position=(64, 50),
-                new_screen=False,
-            )
-            mapping = [
-                 (self.button_l, ('freq', -0.01), ),
-                 (self.button_r, ('freq', 0.01), ),
-                 (self.button_d, ('power', -0.1), ),
-                 (self.button_u, ('power', 0.1),)
-             ]
-            action = self.check_buttons(
-                button_action_mapping=mapping, bypass_value=('power', 0.1))
-            if isinstance(action, tuple):
-                params[action[0]] += action[1]
-            if not toomuchnoise and np.abs(gain * fact - target_gain) < 0.5:
-                success = True
-
-            if toomuchnoise:
-                pass # optionally  implement crazy mode
+        # params = dict(power=8.0, freq=8.03)  # hard ones
+        # target_gain = 20
+        # fact = 40/12.13
+        # success = False
+        # while not success:
+        #     text = (f"Pump parameters\n"
+        #             f"Power (U/D): {params['power']:.1f} dBm\n"
+        #             f"Freq.   (L/R): {params['freq']:.2f} GHz")
+        #     gain, toomuchnoise = self.twpa_optimization(
+        #         params['power'], params['freq'])
+        #     self.pixels.fill((0, 0, 0))
+        #     if not toomuchnoise:
+        #         color = (int(15*gain), int(15*gain), 0)
+        #         self.pixels.fill(color)
+        #     else:
+        #         for i in range(len(self.pixels)):
+        #             color = [random.randrange(255) for i in range(3)]
+        #             self.pixels[i] = color
+        #     self._display_text_on_screen(
+        #         text, position=(64, 20), font_size=11)
+        #     # multiplicative factor such that 20 dB at "optimal" twpa parameters i.e. 9 dbm and 7.91 GHz
+        #     text = f"Gain: {gain * fact:.2f} dB"
+        #     self._display_text_on_screen(
+        #         text,
+        #         position=(64, 50),
+        #         new_screen=False,
+        #     )
+        #     mapping = [
+        #          (self.button_l, ('freq', -0.01), ),
+        #          (self.button_r, ('freq', 0.01), ),
+        #          (self.button_d, ('power', -0.1), ),
+        #          (self.button_u, ('power', 0.1),)
+        #      ]
+        #     action = self.check_buttons(
+        #         button_action_mapping=mapping, bypass_value=('power', 0.1))
+        #     if isinstance(action, tuple):
+        #         params[action[0]] += action[1]
+        #     if not toomuchnoise and np.abs(gain * fact - target_gain) < 0.5:
+        #         success = True
+        #
+        #     if toomuchnoise:
+        #         pass # optionally  implement crazy mode
                 #self._display_text_on_screen("Too much noise!", new_screen=False)
 
 
-    def twpa_optimization(self, power, frequency):
-        # Input: Frequency in GHz, power in dBm
-        # Output: Gain Factor (between 0 and 10), bool for indicating too much noise
-        # Optimal value at 7.91 GHz, 9.5 dBm
-        # Too much noise above 9 dBm
-
-        freqgain = 10 / (1 + (7.91 - frequency) ** 2 / 0.01)
-
-        powergain = np.exp(-(power - 9.5) ** 2 / 0.5)
-
-        gain = freqgain * powergain
-
-        try:
-            if power > 9:
-                toomuchnoise = True
-            else:
-                toomuchnoise = False
-        except:
-            toomuchnoise = False
-        return gain, toomuchnoise
 
     def play_again(self):
         print('Play again?')
@@ -441,155 +469,41 @@ class PhDHat:
             else:
                 time.sleep(FRAME_TIME)
 
-    def surface_code_stage(self):
+    def fridge_stage(self):
         self._display_text_on_screen(
-            "3. Win\nthe surface\nboard game"
+            "3. Fix fridge cooldown"
         )
-        playing = True
-        
-        # Assume your samples are loaded in the following format:
-        # samples = {0: {'syndromes': [...], 'data_qubits': [...], 'log_op': ...}, 1: {...}, ...}
-        sample_path = Path(__file__).parent.joinpath("samples.npz")
-        print(f'Loading samples from {sample_path}')
-        samples = self.load_samples(sample_path)
-        current_round = 1
-        self.score = 0 # amount of successes
-        self.streak = 0 # amount of consecutive successes
-        self.n_rounds = 3 # number of games of decoding to program
 
-        # light up data qubits
-        self.pixels.fill((0, 0, 0))
-        colors = [COLOR_DATA_QB] * 9 + [COLOR_Z_AUX_QB] * 4 + [COLOR_X_AUX_QB] * 4 
-        keys = ["d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8", "d9", "z1", "z2", "z3", "z4", "x1", "x2", "x3", "x4"]
-        self.light_neopixels(
-            [True] * (DISTANCE**2 * 2 - 1), colors=colors,
-            keys=keys,
-        )
-        time.sleep(2)
-        # self.light_neopixels([True] * DISTANCE**2, colors=[COLOR_DATA_QB] * DISTANCE**2,
-        #                      keys=[f"d{i}" for i in range(1,  DISTANCE**2 +1) ]) # currently assumes data qubits are after aux.
-        while playing:
-            self._display_text_on_screen(f'Game #{current_round}', sleep=2)
-            self.light_neopixels([True] * DISTANCE**2, colors=[COLOR_DATA_QB] * DISTANCE**2,
-                                 keys=[f"d{i}" for i in range(1,  DISTANCE**2 +1) ])
-            sample = self.choose_sample(samples)
-            success = self.display_syndrome(sample)
-
-            current_round += 1
-            self.score += success
-            if success:
-                self.streak += 1
-                self.display_success_screen(self.score, self.streak)
+        while True:
+            # If fridge connection made (value brought low)
+            if not self.fridge_input.value:
+                return
+            # bypass If A and B pressed (brought low)
+            elif self.check_bypasses():
+                return
             else:
-                self.streak = 0
-                self.display_failure_screen(self.score)
+                time.sleep(FRAME_TIME)
 
-            if current_round > self.n_rounds:
-                playing = False
+    def libqudev_stage(self):
+        self._display_text_on_screen(
+            "4. Fix Libqudev!"
+        )
+        while True:
+            # If 00 returned by libqudev (value brought low)
+            if not self.libqudev01_input.value and not self.libqudev02_input:
+                return
+            # bypass If A and B pressed (brought low)
+            elif self.check_bypasses():
+                return
+            else:
+                time.sleep(FRAME_TIME)
 
-        if self.score/self.n_rounds > 0.5:
-            text = (f"Congratulations!\nDecoding\nSuccess Prob. {self.score/self.n_rounds*100:.1f}%")
-            self._display_text_on_screen(text, font_size=11, sleep=3)
-            text = (f"This is enough to\n"
-                    f"correctly project onto\n"
-                    f"the Massachusetts State\n"
-                    f"without errors.")
-            self._display_text_on_screen(text, font_size=10, sleep=10)
-        else:
-            text = (f"Decoding\nSuccess Prob. {self.score / self.n_rounds*100:.1f}%")
-            self._display_text_on_screen(text, font_size=10, sleep=2)
-            text = (f"Make sure to train\n"
-                    f"again before projecting\n"
-                    f"onto the Massachusetts\nState.")
-            self._display_text_on_screen(text, font_size=10, sleep=10)
+    def finish_stage(self):
+        self._display_text_on_screen(
+            "You made it!\nCode: 123"
+        )
         print('Game over.')
 
-    def check_logical_operator(self, sample, flip):
-        print(sample)
-        log_op = sample['log_op']
-        initial_state = sample['log_op_init']
-        print(f'Checking logical operator: initial state {initial_state}, log op {log_op}, flip {flip}')
-        if flip:
-            log_op = not log_op
-        if log_op == initial_state:
-            return True
-        else:
-            return False
-
-    @staticmethod
-    def load_samples(file_path, display=False):
-        data = np.load(file_path, allow_pickle=True)
-        samples = {int(seed): data[seed].item() for seed in data.files}
-        if display:
-            for seed, data in samples.items():
-                print(f"Seed {seed}:")
-                print("Syndromes:", data['syndromes'])
-                print("Data qubits:", data['data_qubits'])
-                print("Log op:", data['log_op'])
-                print("\n")
-        return samples
-
-    @staticmethod
-    def choose_sample(samples):
-        global current_frame
-
-        if current_frame < N_DETERMINISTIC_SAMPLES:
-            # Return the n-th sample for the first N_DETERMINISTIC_SAMPLES rounds
-            sample_index = current_frame
-        else:
-            # Return a random sample after the first N_DETERMINISTIC_SAMPLES rounds
-            sample_index = random.randint(0, len(samples) - 1)
-
-        current_frame += 1
-        return samples[sample_index]
-
-    def display_syndrome(self, sample, colors=None, bypass_buttons=False):
-        if colors is None:
-            colors = [COLOR_Z_AUX_QB] * 4 + [COLOR_X_AUX_QB] * 4 #+ [COLOR_DATA_QB] * 9
-
-        cycle = 0
-        exit = False
-        while cycle < len(sample['syndromes']) / N_AUX_QBS + 1  and not exit:
-            if cycle == len(sample['syndromes']) / N_AUX_QBS:
-                # this is the last frame, but it needs to still be in the while
-                # loop just in case the decision is taken to go back to the previous cycle
-                self.display_logical_operator_prompt()
-
-                action = self.check_buttons(button_action_mapping=[(self.button_l, 'prev'),
-                                                                   (self.button_u, 'yes'),
-                                                                   (self.button_d, 'no')],
-                                            bypass_value="yes")
-                if action == "prev": # go back to previous cycle
-                    cycle -= 1
-                elif action == "yes": # check logical operator and return success/failure
-                    return self.check_logical_operator(sample, flip=True)
-                elif action == "no":
-                    return self.check_logical_operator(sample, flip=False)
-
-            else:
-                syndrome_slice = sample['syndromes'][cycle*N_AUX_QBS: (cycle + 1) * N_AUX_QBS]
-                print("Cycle:", cycle +1, syndrome_slice) # for display, cycles are 1-indexed
-                self._display_surface_board_cycle(score=self.score, n_rounds=self.n_rounds,
-                                                  streak=self.streak, cycle=cycle+1) # for display, cycles are 1-indexed
-                # self.light_neopixels(9*[True], colors[8:], keys=["d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8", "d9"])
-                self.light_neopixels(syndrome_slice, colors, keys=["z1", "z2", "z3", "z4",
-                                                                   "x1", "x2", "x3", "x4"])
-
-                if bypass_buttons:
-                    cycle += 1
-                    time.sleep(2)
-                else:
-                    frame_update = None
-                    while frame_update is None:
-                        frame_update = self.check_buttons(bypass_value="next")
-                        if frame_update == 'next':
-                            cycle += 1
-                        if frame_update == 'prev':
-                            if cycle > 0:
-                                cycle -= 1
-                        if frame_update == 'exit':
-                            exit = True
-                    time.sleep(0.5)
 
         #
         # return False  # Unsuccessful display
@@ -636,19 +550,19 @@ class PhDHat:
                 else:
                     self.pixels[i] = (0, 0, 0)  # Turn off NeoPixel
 
-    def display_logical_operator_prompt(self, op="Z"):
-        txt = f"Flip {op}_L?\n(Up/Down: Yes/No)"
-        self._display_text_on_screen(txt, font_size=12)
-
-    def display_success_screen(self, score, streak):
-        text = f"Success!\nNew Score: {score}\nStreak: {streak}"
-        self._display_text_on_screen(text, font_size=12)
-        self.light_neopixels([False] + 17*[True], [(0, 0, 0)] + 17*[(0, 255, 0)])  # green
-        time.sleep(2)
-
-    def display_failure_screen(self, score):
-        text = f"Incorrect :-(\nScore: {score}"
-        self._display_text_on_screen(text, font_size=12)
-        self.light_neopixels([False] + 17*[True], [(0, 0, 0)] + 17*[(255, 0, 0)])  # red
-        time.sleep(2)
+    # def display_logical_operator_prompt(self, op="Z"):
+    #     txt = f"Flip {op}_L?\n(Up/Down: Yes/No)"
+    #     self._display_text_on_screen(txt, font_size=12)
+    #
+    # def display_success_screen(self, score, streak):
+    #     text = f"Success!\nNew Score: {score}\nStreak: {streak}"
+    #     self._display_text_on_screen(text, font_size=12)
+    #     self.light_neopixels([False] + 17*[True], [(0, 0, 0)] + 17*[(0, 255, 0)])  # green
+    #     time.sleep(2)
+    #
+    # def display_failure_screen(self, score):
+    #     text = f"Incorrect :-(\nScore: {score}"
+    #     self._display_text_on_screen(text, font_size=12)
+    #     self.light_neopixels([False] + 17*[True], [(0, 0, 0)] + 17*[(255, 0, 0)])  # red
+    #     time.sleep(2)
 
