@@ -471,12 +471,12 @@ class PhDHat:
 
     def fridge_stage(self):
         self._display_text_on_screen(
-            "3. Fix fridge cooldown"
+            "3. Fix fridge cooldown\nOh my, a valve maybe?"
         )
 
         while True:
-            # If fridge connection made (value brought low)
-            if not self.fridge_input.value:
+            # If fridge connection made (True = HIGH = 3.3v)
+            if self.fridge_input.value:
                 return
             # bypass If A and B pressed (brought low)
             elif self.check_bypasses():
@@ -565,4 +565,3 @@ class PhDHat:
     #     self._display_text_on_screen(text, font_size=12)
     #     self.light_neopixels([False] + 17*[True], [(0, 0, 0)] + 17*[(255, 0, 0)])  # red
     #     time.sleep(2)
-
