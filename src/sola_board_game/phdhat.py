@@ -417,22 +417,23 @@ class PhDHat:
         width = self.disp.width
         height = self.disp.height
 
-        # test_plot = FreqPlot(width, height, buffer=16, nb_pts=3)
-        # test_plot.update_freq_plot()
-        # self.disp.image(test_plot.main_img)
-        # self.disp.show()
-        print('width = %d' % width)
-        print('height = %d' % height)
+        # print('width = %d' % width)
+        # print('height = %d' % height)
 
         freq_plot = FreqPlot(w=width, h=height, buffer=16, nb_pts=3)
         noise_plot = NoisePlot(w=width, h=height, buffer=16, nb_pts=28)
+
         self.disp.image(freq_plot.main_img)
         self.disp.show()
+
         success = False
+
+        # Init qubit pixels
         for label, freq in zip(freq_plot.labels, freq_plot.values):
             rgb = value_to_rgb(1 - freq) + (0,)
             self.light_up_pixel(self.led_indices[label], rgb)
 
+        # Start the first game
         while not success:
             if not self.button_r.value:
                 freq_plot.update_marker(1)
@@ -440,24 +441,33 @@ class PhDHat:
             if not self.button_l.value:
                 freq_plot.update_marker(-1)
 
+            # Update frequency
             if not self.button_u.value:
                 freq_plot.update_value(-0.1)
                 for label, freq in zip(freq_plot.labels, freq_plot.values):
                     rgb = value_to_rgb(1-freq) + (0,)
                     self.light_up_pixel(self.led_indices[label], rgb)
 
+            # Update frequency
             if not self.button_d.value:
                 freq_plot.update_value(0.1)
                 for label, freq in zip(freq_plot.labels, freq_plot.values):
                     rgb = value_to_rgb(1-freq) + (0,)
                     self.light_up_pixel(self.led_indices[label], rgb)
 
+            # First two qubits resonant condition
             if freq_plot.values[0] == freq_plot.values[1]:
-                self.light_up_pixel(self.led_indices['bright'], (255, 255, 255, 255))
-                rgb_dark = value_to_rgb(1-(freq_plot.values[1] + freq_plot.hybridization)) + (0,)
+                # Bright state goes bright
+                brightness = 1
+                rgb_bright = value_to_rgb(1-(freq_plot.values[1] - freq_plot.hybridization)) + (0,)
+                self.light_up_pixel(self.led_indices['bright'], tuple(int(i*brightness) for i in rgb_bright))
 
-                self.light_up_pixel(self.led_indices['dark'], tuple(i//20 for i in rgb_dark))
-                # Game 1 done
+                # Dark state goes dark
+                darkness = 0.05
+                rgb_dark = value_to_rgb(1-(freq_plot.values[1] + freq_plot.hybridization)) + (0,)
+                self.light_up_pixel(self.led_indices['dark'], tuple(int(i*darkness) for i in rgb_dark))
+
+                # Game 1 done condition
                 if freq_plot.values[2] == freq_plot.values[1] + freq_plot.hybridization:
                     print('First game done!')
                     success_img = Image.new('1', (width, height))
@@ -473,10 +483,11 @@ class PhDHat:
             if self.check_bypasses():
                 break
 
-
+        # Start the Noise shaping game
         self.disp.image(noise_plot.main_img)
         self.disp.show()
         time.sleep(2)
+
         success = False
 
         while not success:
@@ -487,11 +498,45 @@ class PhDHat:
             if not self.button_l.value:
                 noise_plot.update_marker(-1)
 
+            # Update power
             if not self.button_u.value:
                 noise_plot.update_value(-0.1)
+                # Update the LED with brightness and darkness mapped to the distance
+                brightness = noise_plot.current_distance + 0.1
+                rgb_bright = value_to_rgb(1-(freq_plot.values[1] - freq_plot.hybridization)) + (0,)
+                self.light_up_pixel(self.led_indices['bright'], tuple(int(i * brightness) for i in rgb_bright))
+
+                # Dark state goes dark
+                darkness = 1 - noise_plot.current_distance - 0.1
+                if darkness < 0:
+                    darkness = 0
+                rgb_dark = value_to_rgb(1-(freq_plot.values[1] + freq_plot.hybridization)) + (0,)
+                self.light_up_pixel(self.led_indices['dark'], tuple(int(i//darkness) for i in rgb_dark))
 
             if not self.button_d.value:
                 noise_plot.update_value(0.1)
+
+                # Update the LED with brightness and darkness mapped to the distance
+                brightness = noise_plot.current_distance + 0.1
+                rgb_bright = value_to_rgb(1-(freq_plot.values[1] - freq_plot.hybridization)) + (0,)
+                self.light_up_pixel(self.led_indices['bright'], tuple(int(i * brightness) for i in rgb_bright))
+
+                # Dark state goes dark
+                darkness = 1 - noise_plot.current_distance - 0.1
+                if darkness < 0:
+                    darkness = 0
+                rgb_dark = value_to_rgb(1-(freq_plot.values[1] + freq_plot.hybridization)) + (0,)
+                self.light_up_pixel(self.led_indices['dark'], tuple(int(i//darkness) for i in rgb_dark))
+
+            if noise_plot.current_distance <= 0.1:
+                print('Second game done!')
+                success_img = Image.new('1', (width, height))
+                success_draw = ImageDraw.Draw(success_img)
+                success_draw.text((16, 32), 'Second game done! :)', fill=1)
+                self.disp.image(success_img)
+                self.disp.show()
+                time.sleep(5)
+                success = True
 
             self.disp.image(noise_plot.main_img)
             self.disp.show()
