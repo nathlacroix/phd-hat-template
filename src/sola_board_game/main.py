@@ -5,7 +5,7 @@ hat = phdhat.PhDHat()
 
 hat.initial_stage()
 # hat.sola_stage(phdhat.SOLA.THREE_DI)
-# hat.three_di_stage()
+hat.three_di_stage()
 # hat.sola_stage(phdhat.SOLA.BIO)
 # hat.bio_stage()
 
@@ -15,7 +15,7 @@ hat.initial_stage()
 
 #
 # hat.sola_stage(phdhat.SOLA.LIBQUDEV)
-hat.libqudev_stage()
+# hat.libqudev_stage()
 
 # hat.finish_stage()
 # keep_playing = hat.play_again()

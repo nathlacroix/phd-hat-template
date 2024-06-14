@@ -345,12 +345,12 @@ class PhDHat:
         ultrasonic = DistanceSensor(echo=ECHO, trigger=TRIG)
 
         # Define the distance range
-        MIN_DISTANCE = 5  # Minimum distance in cm
-        MAX_DISTANCE = 25  # Maximum distance in cm
+        MIN_DISTANCE = 24  # Minimum distance in cm
+        MAX_DISTANCE = 28  # Maximum distance in cm
 
         # Timer settings
         TIMER_DURATION = 10  # Countdown timer duration in seconds
-        SUCCESS_STR = "Congrats, your sample is level."
+        SUCCESS_STR = "Congrats,\nyour sample\nis leveled."
 
         def measure_distance():
             """Measure the distance using the HC-SR04 sensor."""
@@ -372,37 +372,30 @@ class PhDHat:
 
             distance, distance_cm_str = measure_distance()
 
-            if MIN_DISTANCE <= distance <= MAX_DISTANCE:
+            if MIN_DISTANCE <= distance*100 <= MAX_DISTANCE:
                 if countdown_timer is None:
                     countdown_timer = TIMER_DURATION
                     countdown_start_time = time.time()
                     elapsed_time = time.time() - countdown_start_time
                     remaining_time = TIMER_DURATION - elapsed_time
-                    output_str = f"Keep sample\nlevel.\nDistance: {distance_cm_str} cm, Timer: {int(remaining_time)}s"
+                    output_str = f"Keep level!\nDist: {distance_cm_str} cm, Timer: {int(remaining_time)}s"
                 else:
                     elapsed_time = time.time() - countdown_start_time
                     remaining_time = TIMER_DURATION - elapsed_time
                     if remaining_time <= 0:
                         output_str = SUCCESS_STR
                     else:
-                        output_str = f"Please keep sample level. Distance: {distance_cm_str} cm, Timer: {int(remaining_time)}s"
+                        output_str = f"Keel level!\nDist: {distance_cm_str} cm,\nTimer: {int(remaining_time)}s"
             else:
                 countdown_timer = None
                 countdown_start_time = None
-                output_str = f" Sample not level. Distance: {distance_cm_str} cm."
-
+                output_str = f"Sample not\nleveled.\nDist: {distance_cm_str} cm."
+                print(MIN_DISTANCE, distance*100, MAX_DISTANCE)
             self._display_text_on_screen(output_str)
-            time.sleep(1)
 
-        while True:
-            # If 3di connection made (value brought low)
-            if not self.three_di_input.value:
+            if self.check_bypasses():
                 return
-            # bypass If A and B pressed (brought low)
-            elif self.check_bypasses():
-                return
-            else:
-                time.sleep(FRAME_TIME)
+            time.sleep(0.3)
 
     def bio_stage(self):
         # Light all LEDs yellow to match the figure
@@ -536,13 +529,16 @@ class PhDHat:
 
     def fridge_stage(self):
         self._display_text_on_screen(
-            "3. Fix fridge cooldown\nOh my, a valve maybe?"
+            "Starting BF1\n cooldown...\nV15 issue!"
         )
 
         while True:
             # If fridge connection made (value brought low)
             if self.fridge_input.value:
                 print('cooldown initiated')
+                self._display_text_on_screen(
+                    "Valve fixed!"
+                )
                 time.sleep(5)
                 return
             # bypass If A and B pressed (brought low)
@@ -553,32 +549,39 @@ class PhDHat:
 
     def libqudev_stage(self):
         self._display_text_on_screen(
-            "4. Fix Libqudev!"
+            "Choose correct\ndesign cell(s)!"
         )
 
         while True:
             # both need to be configured in pull down mode
             # If 11 returned by libqudev (value brought low)
-            if self.libqudev01_input.value and self.libqudev02_input:
+            if self.libqudev01_input.value and self.libqudev02_input.value:
                 self._display_text_on_screen(
-                    "Success, you\nmastered libqudev"
+                    "Success, you\nmastered\nlibqudev!"
                 )
                 return
-            if self.libqudev01_input.value and not self.libqudev02_input:
+            if self.libqudev01_input.value and not self.libqudev02_input.value:
                 self._display_text_on_screen(
-                    "Error: string contains\nillegal characters"
+                    "Error: string\ncontains illegal\ncharacters"
                 )
-            if not self.libqudev01_input.value and not self.libqudev02_input:
+            if not self.libqudev01_input.value and self.libqudev02_input.value:
                 self._display_text_on_screen(
                     "Error: dupplicate\ncell name"
                 )
-            if not self.libqudev01_input.value and not self.libqudev02_input:
+            if not self.libqudev01_input.value and not self.libqudev02_input.value:
                 print('value returned: 00 (no input)')
+                self._display_text_on_screen(
+                    "Choose correct\ndesign cell(s)!"
+                )
             # bypass If A and B pressed (brought low)
             elif self.check_bypasses():
                 return
             else:
+
                 time.sleep(FRAME_TIME)
+            print(self.libqudev01_input.value, self.libqudev02_input.value)
+            time.sleep(1)
+
 
     def finish_stage(self):
         self._display_text_on_screen(
