@@ -1,5 +1,3 @@
-from pathlib import Path
-import random
 import time
 
 import adafruit_ssd1306
@@ -9,25 +7,27 @@ from digitalio import DigitalInOut, Direction, Pull
 import neopixel
 import numpy as np
 from PIL import ImageFont, ImageDraw, Image
+from gpiozero import DistanceSensor
 
-
+from bio import value_to_rgb, FreqPlot, NoisePlot
 
 PI_PIN_SOLA_3DI = board.D13
 PI_PIN_3DI = board.D19
+PI_PIN_3DI2 = board.D26
 
-PI_PIN_SOLA_BIO = board.D26
+
+PI_PIN_SOLA_BIO = board.D21
 PI_PIN_NEOPIXELS = board.D21
 
-PI_PIN_SOLA_FRIDGE = board.D20
-PI_PIN_FRIDGE = board.D16
+PI_PIN_SOLA_FRIDGE = board.D16
+PI_PIN_FRIDGE = board.D12
 
-PI_PIN_SOLA_LIBQ = board.D12
-PI_PIN_LIBQ1 = board.D25
-PI_PIN_LIBQ2 = board.D24
+PI_PIN_SOLA_LIBQ = board.D25
+PI_PIN_LIBQ1 = board.D24
+PI_PIN_LIBQ2 = board.D18
 
 PI_PIN_EXTRA = board.D18
 
-PI_NEOPIXEL_COUNT = 5
 FONTPATH = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 # Tick rate for sleeping between checking the buttons, 60 Hz
 FRAME_TIME = 1.0/60.0
@@ -36,102 +36,19 @@ FRAME_TIME = 1.0/60.0
 N_DETERMINISTIC_SAMPLES = 3
 DISTANCE = 3
 N_AUX_QBS = DISTANCE**2 - 1  # Adjust this based on your actual number of auxiliary qubits
-NEOPIXEL_COUNT = 17  # Adjust this based on your actual number of NeoPixels
-TWPA_CALIBRATED = False
-green_gradients = [
-    (0, 255, 0),
-    (4, 251, 0),
-    (8, 247, 0),
-    (12, 243, 0),
-    (16, 239, 0),
-    (20, 235, 0),
-    (24, 231, 0),
-    (28, 227, 0),
-    (32, 223, 0),
-    (36, 219, 0),
-    (44, 211, 0),
-    (48, 207, 0),
-    (52, 203, 0),
-    (56, 199, 0),
-    (60, 195, 0),
-    (64, 191, 0),
-    (68, 187, 0),
-    (72, 183, 0),
-    (76, 179, 0),
-    (80, 175, 0),
-    (84, 171, 0),
-    (88, 167, 0),
-    (92, 163, 0),
-    (96, 159, 0),
-    (100, 155, 0),
-    (104, 151, 0),
-    (108, 147, 0),
-    (112, 143, 0),
-    (116, 139, 0),
-    (120, 135, 0),
-    (124, 131, 0),
-    (128, 127, 0),
-    (132, 123, 0),
-    (136, 119, 0),
-    (140, 115, 0),
-    (144, 111, 0),
-    (148, 107, 0),
-    (152, 103, 0),
-    (156, 99, 0),
-    (160, 95, 0),
-    (164, 91, 0),
-    (168, 87, 0),
-    (172, 83, 0),
-    (176, 79, 0),
-    (180, 75, 0),
-    (184, 71, 0),
-    (188, 67, 0),
-    (192, 63, 0),
-    (196, 59, 0),
-    (200, 55, 0),
-    (204, 51, 0),
-    (208, 47, 0),
-    (212, 43, 0),
-    (216, 39, 0),
-    (220, 35, 0),
-    (224, 31, 0),
-    (228, 27, 0),
-    (232, 23, 0),
-    (236, 19, 0),
-    (240, 15, 0),
-    (244, 11, 0),
-    (248, 7, 0),
-    (255, 3, 0)
-]
-blue_gradients = [
-    (173, 216, 230), (176, 224, 230), (184, 233, 238), (188, 238, 243),
-    (193, 240, 244), (197, 245, 249), (200, 249, 255), (202, 252, 255),
-    (206, 253, 255), (210, 255, 255), (214, 255, 255), (178, 223, 238),
-    (149, 206, 251), (120, 188, 255), (91, 171, 255), (62, 154, 255),
-    (33, 136, 255), (4, 119, 255), (0, 104, 235), (0, 89, 204),
-    (0, 74, 173), (0, 59, 143), (0, 44, 112), (0, 29, 81),
-    (135, 206, 250), (127, 199, 242), (118, 192, 234), (110, 185, 226),
-    (101, 178, 218), (93, 171, 210), (85, 164, 202), (76, 157, 194),
-    (68, 150, 186), (59, 143, 178), (51, 136, 170), (43, 129, 162),
-    (34, 122, 154), (26, 115, 146), (17, 108, 138), (9, 101, 130),
-    (0, 94, 122), (0, 87, 114), (0, 80, 106), (0, 73, 98),
-    (0, 66, 90), (0, 59, 82), (0, 52, 74), (0, 45, 66),
-    (0, 38, 58), (0, 31, 50), (0, 24, 42), (0, 17, 34),
-    (0, 10, 26), (0, 3, 18), (0, 0, 10), (0, 0, 20),
-    (0, 0, 30), (0, 0, 40), (0, 0, 50), (0, 0, 60),
-    (0, 0, 70), (0, 0, 80), (0, 0, 90), (0, 0, 100),
-    (0, 0, 110), (0, 0, 120), (0, 0, 130), (0, 0, 140),
-    (0, 0, 150), (0, 0, 160), (0, 0, 170), (0, 0, 180)
-]
-red_gradients = [(255//3, 0//4, 0//4)]*64
-# COLOR_Z_AUX_QB = green_gradients[10]
-# COLOR_X_AUX_QB = blue_gradients[20]
-# COLOR_DATA_QB = red_gradients[0]
-COLOR_Z_AUX_QB = (0, 128, 0)
-COLOR_X_AUX_QB = (0, 0, 128)
-COLOR_DATA_QB = (128, 0, 0)
-# Other global variables
-current_frame = 0
+NEOPIXEL_COUNT = 5  # Adjust this based on your actual number of NeoPixels
+
+class SOLA:
+    THREE_DI = 1
+    BIO = 2
+    FRIDGE = 3
+    LIBQUDEV = 4
+
+    PINS = {THREE_DI: PI_PIN_SOLA_3DI,
+             BIO: PI_PIN_SOLA_BIO,
+             FRIDGE: PI_PIN_SOLA_FRIDGE,
+             LIBQUDEV: PI_PIN_SOLA_LIBQ}
+
 
 class PhDHat:
 
@@ -142,10 +59,10 @@ class PhDHat:
         self.state = "pre-initialize"
         self.pixels = neopixel.NeoPixel(
             PI_PIN_NEOPIXELS,
-            PI_NEOPIXEL_COUNT,
+            NEOPIXEL_COUNT,
             brightness=0.2,
             # auto_write=False,
-            pixel_order=neopixel.GRB,
+            pixel_order=neopixel.GRBW,
         )
         # Create the I2C interface.
         self.i2c = busio.I2C(board.SCL, board.SDA)
@@ -215,6 +132,10 @@ class PhDHat:
             inp.pull = Pull.UP
             # Ground the pin to bring the value low (False)
 
+        # for inp in [self.fridge_input]:
+        for inp in [self.sola_bio_input]:
+            inp.direction = Direction.INPUT
+            inp.pull = Pull.DOWN
         # Clear the display
         self.disp.fill(0)
         self.disp.show()
@@ -224,26 +145,11 @@ class PhDHat:
         # self.pixels.show()
 
         self.led_indices = {
-            "d1":  1,
-            "d2":  5,
-            "d3":  7,
-            "d4":  3,
-            "d5":  9,
-            "d6": 15,
-            "d7": 11,
-            "d8": 13,
-            "d9": 17,
-            "x1":  6,
-            "x2":  4,
-            "x3": 14,
-            "x4": 12,
-            "z1": 2,
-            "z2": 10,
-            "z3":  8,
-            "z4": 16,
-            "twpa1": 18,
-            "twpa2": 19,
-            "twpa3": 20,
+            "q3":  0,
+            "dark": 1,
+            "q1":  2,
+            "bright":  3,
+            "q2":  4,
         }
 
 
@@ -312,39 +218,43 @@ class PhDHat:
         # time.sleep(2)
 
     def _led_test(self):
-        self.pixels.fill((255, 0, 0))
+        # self.pixels[0] = (255, 0, 0)
+        # self.pixels[1] = (0, 255, 0)
+        # self.pixels[2] = (0, 0, 255)
+        # self.pixels[3] = (255, 255, 0)
+        self.pixels[4] = (0, 255, 255)
+        self.pixels.show()
+        # time.sleep(2)
+        # self.pixels.fill((0, 255, 0))
         # self.pixels.show()
-        time.sleep(2)
-        self.pixels.fill((0, 255, 0))
+        # time.sleep(2)
+        # self.pixels.fill((0, 0, 255))
         # self.pixels.show()
-        time.sleep(2)
-        self.pixels.fill((0, 0, 255))
-        # self.pixels.show()
-        time.sleep(2)
-        for led_key in self.led_indices:
-            self.pixels.fill((0, 0, 0))
-            if led_key[0] == 'd':
+        # time.sleep(2)
+        # for led_key in self.led_indices:
+        #     self.pixels.fill((0, 0, 0))
+        #     if led_key[0] == 'q':
                 # red
-                color = (255, 0, 0)
-            elif led_key[0] == 'x':
+                # color = (255, 0, 0)
+            # elif led_key[0] == 'd':
                 # blue
-                color = (0, 0, 255)
-            elif led_key[0] == 'z':
+                # color = (0, 0, 255)
+            # elif led_key[0] == 'b':
                 # green
-                color = (0, 255, 0)
-            else:
-                color = (128, 128, 128)
+                # color = (0, 255, 0)
+            # else:
+            #     color = (128, 128, 128)
             # for pix_idx in range(len(self.pixels)):
             #     self.pixels[pix_idx] = (0, 0, 0)
-            print(f"LED {led_key}, index {self.led_indices[led_key]}")
-            self.pixels[self.led_indices[led_key]] = color
+            # print(f"LED {led_key}, index {self.led_indices[led_key]}")
+            # self.pixels[self.led_indices[led_key]] = color
             # self.pixels.show()
             # mask = PI_NEOPIXEL_COUNT * [False]
             # colors = PI_NEOPIXEL_COUNT * [(0, 0, 0)]
             # mask[self.led_indices[led_key]] = True
             # colors[self.led_indices[led_key]] = color
             # self.light_neopixels(mask, colors)
-            time.sleep(3)
+            # time.sleep(3)
 
     def initial_stage(self):
         print('Initial stage ...')
@@ -364,13 +274,125 @@ class PhDHat:
             else:
                 time.sleep(FRAME_TIME)
 
+    def sola_stage(self, pin):
+        print(f'sola stage with pin {pin}...')
+        msg = f'Run QudevSola\nleg #{pin}'
+        match pin:
+            case SOLA.THREE_DI:
+                self._display_text_on_screen(msg)
+                print('Waiting for connection to 3Di...')
+                while True:
+                    # If 3di connection made (value brought low)
+                    if not self.sola_three_di_input.value:
+                        print('Connection found!')
+                        return
+                    # bypass If A and B pressed (brought low)
+                    elif self.check_bypasses():
+                        return
+                    else:
+                        time.sleep(FRAME_TIME)
+            case SOLA.BIO:
+                self._display_text_on_screen(msg)
+                print('Waiting for connection to Bio...')
+                while True:
+                    # If 3di connection made (value brought low)
+                    if self.sola_bio_input.value:
+                        print('Connection found!')
+                        return
+                    # bypass If A and B pressed (brought low)
+                    elif self.check_bypasses():
+                        return
+                    else:
+                        time.sleep(FRAME_TIME)
+            case SOLA.FRIDGE:
+                self._display_text_on_screen(msg)
+                print('Waiting for connection to fridge...')
+                while True:
+                    # If 3di connection made (value brought low)
+                    if not self.sola_fridge_input.value:
+                        print('Connection found!')
+                        return
+                    # bypass If A and B pressed (brought low)
+                    elif self.check_bypasses():
+                        return
+                    else:
+                        time.sleep(FRAME_TIME)
+            case SOLA.LIBQUDEV:
+                self._display_text_on_screen(msg)
+                print('Waiting for connection to libqudev...')
+                while True:
+                    # If 3di connection made (value brought low)
+                    if not self.sola_libqudev_input.value:
+                        print('Connection found!')
+                        return
+                    # bypass If A and B pressed (brought low)
+                    elif self.check_bypasses():
+                        return
+                    else:
+                        time.sleep(FRAME_TIME)
+
     def three_di_stage(self):
         # Display message
         self._display_text_on_screen(
-            "1. Fix flip-chip hat",
+            "1. Level flip\n-chip hat",
             sleep=3
         )
-        self.pixels.fill((0, 0, 0))
+        # Define the GPIO pins for the HC-SR04 sensor
+        TRIG = 19
+        ECHO = 26
+
+        # Set the GPIO mode
+        ultrasonic = DistanceSensor(echo=ECHO, trigger=TRIG)
+
+        # Define the distance range
+        MIN_DISTANCE = 5  # Minimum distance in cm
+        MAX_DISTANCE = 25  # Maximum distance in cm
+
+        # Timer settings
+        TIMER_DURATION = 10  # Countdown timer duration in seconds
+        SUCCESS_STR = "Congrats, your sample is level."
+
+        def measure_distance():
+            """Measure the distance using the HC-SR04 sensor."""
+            distance = ultrasonic.distance
+            # Round and convert to str
+            # Convert meters to centimeters
+            distance_cm = distance * 100
+            # Round to 1 decimal place and format as a string
+            distance_cm_str = f"{distance_cm:.1f}"
+
+            return distance, distance_cm_str
+
+        output_str = ""
+        countdown_timer = None
+        countdown_start_time = None
+
+        # Needs to be modified such that PRINT_FUNC prints the output_str
+        while output_str != SUCCESS_STR:
+
+            distance, distance_cm_str = measure_distance()
+
+            if MIN_DISTANCE <= distance <= MAX_DISTANCE:
+                if countdown_timer is None:
+                    countdown_timer = TIMER_DURATION
+                    countdown_start_time = time.time()
+                    elapsed_time = time.time() - countdown_start_time
+                    remaining_time = TIMER_DURATION - elapsed_time
+                    output_str = f"Keep sample\nlevel.\nDistance: {distance_cm_str} cm, Timer: {int(remaining_time)}s"
+                else:
+                    elapsed_time = time.time() - countdown_start_time
+                    remaining_time = TIMER_DURATION - elapsed_time
+                    if remaining_time <= 0:
+                        output_str = SUCCESS_STR
+                    else:
+                        output_str = f"Please keep sample level. Distance: {distance_cm_str} cm, Timer: {int(remaining_time)}s"
+            else:
+                countdown_timer = None
+                countdown_start_time = None
+                output_str = f" Sample not level. Distance: {distance_cm_str} cm."
+
+            self._display_text_on_screen(output_str)
+            time.sleep(1)
 
         while True:
             # If 3di connection made (value brought low)
@@ -391,61 +413,104 @@ class PhDHat:
             "2. Tune\nQubit frequencies", sleep=3,
         )
         success = False
+        # initialize
+        # Clear display.
+        self.disp.fill(0)
+        self.disp.show()
+
+        # Create blank image for drawing.
+        # Make sure to create image with mode '1' for 1-bit color.
+        # test something
+        width = self.disp.width
+        height = self.disp.height
+
+        # test_plot = FreqPlot(width, height, buffer=16, nb_pts=3)
+        # test_plot.update_freq_plot()
+        # self.disp.image(test_plot.main_img)
+        # self.disp.show()
+        print('width = %d' % width)
+        print('height = %d' % height)
+
+        freq_plot = FreqPlot(w=width, h=height, buffer=16, nb_pts=3)
+        noise_plot = NoisePlot(w=width, h=height, buffer=16, nb_pts=28)
+        self.disp.image(freq_plot.main_img)
+        self.disp.show()
+        success = False
+        for label, freq in zip(freq_plot.labels, freq_plot.values):
+            rgb = value_to_rgb(1 - freq) + (0,)
+            self.light_up_pixel(self.led_indices[label], rgb)
 
         while not success:
-            # @sasha, write code here
+            if not self.button_r.value:
+                freq_plot.update_marker(1)
+
+            if not self.button_l.value:
+                freq_plot.update_marker(-1)
+
+            if not self.button_u.value:
+                freq_plot.update_value(-0.1)
+                for label, freq in zip(freq_plot.labels, freq_plot.values):
+                    rgb = value_to_rgb(1-freq) + (0,)
+                    self.light_up_pixel(self.led_indices[label], rgb)
+
+            if not self.button_d.value:
+                freq_plot.update_value(0.1)
+                for label, freq in zip(freq_plot.labels, freq_plot.values):
+                    rgb = value_to_rgb(1-freq) + (0,)
+                    self.light_up_pixel(self.led_indices[label], rgb)
+
+            if freq_plot.values[0] == freq_plot.values[1]:
+                self.light_up_pixel(self.led_indices['bright'], (255, 255, 255, 255))
+                rgb_dark = value_to_rgb(1-(freq_plot.values[1] + freq_plot.hybridization)) + (0,)
+
+                self.light_up_pixel(self.led_indices['dark'], tuple(i//20 for i in rgb_dark))
+                # Game 1 done
+                if freq_plot.values[2] == freq_plot.values[1] + freq_plot.hybridization:
+                    print('First game done!')
+                    success_img = Image.new('1', (width, height))
+                    success_draw = ImageDraw.Draw(success_img)
+                    success_draw.text((16, 32), 'First game done! :)', fill=1)
+                    self.disp.image(success_img)
+                    self.disp.show()
+                    time.sleep(5)
+                    success = True
+
+            self.disp.image(freq_plot.main_img)
+            self.disp.show()
+            if self.check_bypasses():
+                break
 
 
-            time.sleep(FRAME_TIME)
+        self.disp.image(noise_plot.main_img)
+        self.disp.show()
+        time.sleep(2)
+        success = False
+
+        while not success:
+            print('second game')
+            if not self.button_r.value:
+                noise_plot.update_marker(1)
+
+            if not self.button_l.value:
+                noise_plot.update_marker(-1)
+
+            if not self.button_u.value:
+                noise_plot.update_value(-0.1)
+
+            if not self.button_d.value:
+                noise_plot.update_value(0.1)
+
+            self.disp.image(noise_plot.main_img)
+            self.disp.show()
+            # TO BE IMPLEMENTED: success check
             success = self.check_bypasses()
+            time.sleep(FRAME_TIME)
 
-
-
-        # twpa optimization
-        # params = dict(power=8.5, freq=7.90)  # easy ones
-        # params = dict(power=8.0, freq=8.03)  # hard ones
-        # target_gain = 20
-        # fact = 40/12.13
-        # success = False
-        # while not success:
-        #     text = (f"Pump parameters\n"
-        #             f"Power (U/D): {params['power']:.1f} dBm\n"
-        #             f"Freq.   (L/R): {params['freq']:.2f} GHz")
-        #     gain, toomuchnoise = self.twpa_optimization(
-        #         params['power'], params['freq'])
-        #     self.pixels.fill((0, 0, 0))
-        #     if not toomuchnoise:
-        #         color = (int(15*gain), int(15*gain), 0)
-        #         self.pixels.fill(color)
-        #     else:
-        #         for i in range(len(self.pixels)):
-        #             color = [random.randrange(255) for i in range(3)]
-        #             self.pixels[i] = color
-        #     self._display_text_on_screen(
-        #         text, position=(64, 20), font_size=11)
-        #     # multiplicative factor such that 20 dB at "optimal" twpa parameters i.e. 9 dbm and 7.91 GHz
-        #     text = f"Gain: {gain * fact:.2f} dB"
-        #     self._display_text_on_screen(
-        #         text,
-        #         position=(64, 50),
-        #         new_screen=False,
-        #     )
-        #     mapping = [
-        #          (self.button_l, ('freq', -0.01), ),
-        #          (self.button_r, ('freq', 0.01), ),
-        #          (self.button_d, ('power', -0.1), ),
-        #          (self.button_u, ('power', 0.1),)
-        #      ]
-        #     action = self.check_buttons(
-        #         button_action_mapping=mapping, bypass_value=('power', 0.1))
-        #     if isinstance(action, tuple):
-        #         params[action[0]] += action[1]
-        #     if not toomuchnoise and np.abs(gain * fact - target_gain) < 0.5:
-        #         success = True
-        #
-        #     if toomuchnoise:
-        #         pass # optionally  implement crazy mode
-                #self._display_text_on_screen("Too much noise!", new_screen=False)
+    def light_up_pixel(self, index, color):
+        print(f"Lighting up pixel {index} with color {color}.")
+        self.pixels[index] = color
+        self.pixels.show()
+        time.sleep(0.1)  # Add a delay to see the change
 
 
 
@@ -471,12 +536,14 @@ class PhDHat:
 
     def fridge_stage(self):
         self._display_text_on_screen(
-            "3. Fix fridge cooldown"
+            "3. Start cooldown\n&Fix BF1"
         )
 
         while True:
             # If fridge connection made (value brought low)
-            if not self.fridge_input.value:
+            if self.fridge_input.value:
+                print('cooldown initiated')
+                time.sleep(5)
                 return
             # bypass If A and B pressed (brought low)
             elif self.check_bypasses():
@@ -488,10 +555,25 @@ class PhDHat:
         self._display_text_on_screen(
             "4. Fix Libqudev!"
         )
+
         while True:
-            # If 00 returned by libqudev (value brought low)
-            if not self.libqudev01_input.value and not self.libqudev02_input:
+            # both need to be configured in pull down mode
+            # If 11 returned by libqudev (value brought low)
+            if self.libqudev01_input.value and self.libqudev02_input:
+                self._display_text_on_screen(
+                    "Success, you\nmastered libqudev"
+                )
                 return
+            if self.libqudev01_input.value and not self.libqudev02_input:
+                self._display_text_on_screen(
+                    "Error: string contains\nillegal characters"
+                )
+            if not self.libqudev01_input.value and not self.libqudev02_input:
+                self._display_text_on_screen(
+                    "Error: dupplicate\ncell name"
+                )
+            if not self.libqudev01_input.value and not self.libqudev02_input:
+                print('value returned: 00 (no input)')
             # bypass If A and B pressed (brought low)
             elif self.check_bypasses():
                 return
@@ -518,6 +600,7 @@ class PhDHat:
 
     def check_bypasses(self, button_bypass=True, software_bypass=False):
         if button_bypass and not self.button_a.value and not self.button_b.value:
+            print('button bypass activated!')
             return True
         elif software_bypass and self.software_bypass:
             print('software bypass will be activated in 2 sec!')

@@ -1,0 +1,6 @@
+Adafruit-Blinka
+adafruit-circuitpython-neopixel
+adafruit-circuitpython-ssd1306
+numpy
+Pillow
+RPi.GPIO

@@ -1,0 +1,10 @@
+README.md
+pyproject.toml
+src/sola_board_game/__init__.py
+src/sola_board_game/main.py
+src/sola_board_game/phdhat.py
+src/sola_board_game.egg-info/PKG-INFO
+src/sola_board_game.egg-info/SOURCES.txt
+src/sola_board_game.egg-info/dependency_links.txt
+src/sola_board_game.egg-info/requires.txt
+src/sola_board_game.egg-info/top_level.txt
