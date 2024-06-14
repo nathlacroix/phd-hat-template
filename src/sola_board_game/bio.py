@@ -123,13 +123,33 @@ class NoisePlot(Plot):
         self.build_main_frame()
         self.update_graph_plot()
 
+        self.ypixels = 10
+        self.xpixels = 28
+
+        self.omega = np.linspace(0, 200, self.xpixels)
+        self.omegac = 100
+        self.b = 2
+        self.a = 2 * self.ypixels
+
+        self.current_distance = self.distance(self.noise_spec())
+
+    def noise_spec(self):
+        exp = (self.omega - self.omegac) ** 2 / (2 * np.pi * self.b) ** 2
+        return self.a / (np.exp(exp) + 1)
+
+    def distance(self, target):
+        norm = np.linalg.norm(target - self.values) / (2 * self.ypixels)
+        if norm > 1:
+            norm = 1
+        return norm
+
     def build_main_frame(self):
         # Clear the img
         self.main_draw.rectangle((0, 0, self.w, self.h), fill=0, outline=0)
         # Put x label
         self.main_draw.text((2*self.buffer, self.h - self.buffer), text='Frequency, a.u.', fill=1)
         # Put y label
-        ylabel_img = self.build_ylabel(text='Power. a.u.')
+        ylabel_img = self.build_ylabel(text='S(w) a.u.')
         self.main_img.paste(ylabel_img, (0, - int(0.5 * self.buffer)))
 
     def update_graph_plot(self):
@@ -144,6 +164,9 @@ class NoisePlot(Plot):
             power_draw.rectangle(xy=(pidx*bar_width, power*h, (pidx+1)*bar_width,  power*h + 5), fill=1, outline=0)
 
         self.main_img.paste(power_plot, (self.buffer, 0))
+
+        self.current_distance = self.distance(self.noise_spec())
+
 
 
 # LED part
@@ -192,10 +215,4 @@ def value_to_rgb(value):
     max_freq = 789
     frequency = min_freq + value * (max_freq - min_freq)
     return frequency_to_rgb(frequency)
-
-
-# Example usage
-value = 0.5
-rgb = value_to_rgb(value)
-print(f"The RGB value for {value} is {rgb}")
 
