@@ -536,7 +536,7 @@ class PhDHat:
 
     def fridge_stage(self):
         self._display_text_on_screen(
-            "3. Start cooldown\n&Fix BF1"
+            "3. Fix fridge cooldown\nOh my, a valve maybe?"
         )
 
         while True:
@@ -648,4 +648,3 @@ class PhDHat:
     #     self._display_text_on_screen(text, font_size=12)
     #     self.light_neopixels([False] + 17*[True], [(0, 0, 0)] + 17*[(255, 0, 0)])  # red
     #     time.sleep(2)
-
