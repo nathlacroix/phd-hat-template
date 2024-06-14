@@ -133,7 +133,7 @@ class PhDHat:
             # Ground the pin to bring the value low (False)
 
         # for inp in [self.fridge_input]:
-        for inp in [self.sola_bio_input]:
+        for inp in [self.sola_bio_input, self.libqudev01_input, self.libqudev02_input]:
             inp.direction = Direction.INPUT
             inp.pull = Pull.DOWN
         # Clear the display
