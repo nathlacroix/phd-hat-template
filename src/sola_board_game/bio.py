@@ -119,26 +119,29 @@ class NoisePlot(Plot):
     def __init__(self, w, h, buffer, nb_pts):
         super().__init__(w, h, buffer, nb_pts)
 
-        self.values = [0.9] * (nb_pts-1) + [0.0]
-        self.build_main_frame()
-        self.update_graph_plot()
+        self.values = [0.9] * (nb_pts)
+
 
         self.ypixels = 10
-        self.xpixels = 28
+        self.xpixels = nb_pts
 
         self.omega = np.linspace(0, 200, self.xpixels)
         self.omegac = 100
-        self.b = 2
-        self.a = 2 * self.ypixels
+        self.b = 5
+        self.a = 2/10 * self.ypixels
 
         self.current_distance = self.distance(self.noise_spec())
+        self.build_main_frame()
+        self.update_graph_plot()
 
     def noise_spec(self):
         exp = (self.omega - self.omegac) ** 2 / (2 * np.pi * self.b) ** 2
         return self.a / (np.exp(exp) + 1)
 
     def distance(self, target):
-        norm = np.linalg.norm(target - self.values) / (2 * self.ypixels)
+        values = [(1 - v) - 0.1 for v in  self.values]
+        print(target, values, target - values)
+        norm = np.linalg.norm(target - values) / (0.5 * self.ypixels)
         if norm > 1:
             norm = 1
         return norm

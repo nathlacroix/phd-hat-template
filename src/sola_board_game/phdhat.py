@@ -133,7 +133,7 @@ class PhDHat:
             # Ground the pin to bring the value low (False)
 
         # for inp in [self.fridge_input]:
-        for inp in [self.sola_bio_input, self.libqudev01_input, self.libqudev02_input]:
+        for inp in [ self.libqudev01_input, self.libqudev02_input]:
             inp.direction = Direction.INPUT
             inp.pull = Pull.DOWN
         # Clear the display
@@ -293,6 +293,7 @@ class PhDHat:
                         time.sleep(FRAME_TIME)
             case SOLA.BIO:
                 self._display_text_on_screen(msg)
+                bypass = True
                 print('Waiting for connection to Bio...')
                 while True:
                     # If 3di connection made (value brought low)
@@ -301,6 +302,10 @@ class PhDHat:
                         return
                     # bypass If A and B pressed (brought low)
                     elif self.check_bypasses():
+                        return
+                    elif bypass:
+                        print('bypassing')
+                        time.sleep(10)
                         return
                     else:
                         time.sleep(FRAME_TIME)
@@ -320,6 +325,7 @@ class PhDHat:
             case SOLA.LIBQUDEV:
                 self._display_text_on_screen(msg)
                 print('Waiting for connection to libqudev...')
+                bypass = True
                 while True:
                     # If 3di connection made (value brought low)
                     if not self.sola_libqudev_input.value:
@@ -327,6 +333,10 @@ class PhDHat:
                         return
                     # bypass If A and B pressed (brought low)
                     elif self.check_bypasses():
+                        return
+                    elif bypass:
+                        print("bypassing")
+                        time.sleep(15)
                         return
                     else:
                         time.sleep(FRAME_TIME)
@@ -421,7 +431,7 @@ class PhDHat:
         # print('height = %d' % height)
 
         freq_plot = FreqPlot(w=width, h=height, buffer=16, nb_pts=3)
-        noise_plot = NoisePlot(w=width, h=height, buffer=16, nb_pts=28)
+        noise_plot = NoisePlot(w=width, h=height, buffer=16, nb_pts=14)
 
         self.disp.image(freq_plot.main_img)
         self.disp.show()
@@ -475,7 +485,7 @@ class PhDHat:
                     success_draw.text((16, 32), 'First game done! :)', fill=1)
                     self.disp.image(success_img)
                     self.disp.show()
-                    time.sleep(5)
+                    time.sleep(3)
                     success = True
 
             self.disp.image(freq_plot.main_img)
@@ -489,9 +499,9 @@ class PhDHat:
         time.sleep(2)
 
         success = False
-
+        print('second game')
         while not success:
-            print('second game')
+            success = self.check_bypasses()
             if not self.button_r.value:
                 noise_plot.update_marker(1)
 
@@ -502,46 +512,54 @@ class PhDHat:
             if not self.button_u.value:
                 noise_plot.update_value(-0.1)
                 # Update the LED with brightness and darkness mapped to the distance
-                brightness = noise_plot.current_distance + 0.1
+                brightness = noise_plot.current_distance*3 + 0.1
+                if brightness > 1:
+                    brightness = 1
                 rgb_bright = value_to_rgb(1-(freq_plot.values[1] - freq_plot.hybridization)) + (0,)
                 self.light_up_pixel(self.led_indices['bright'], tuple(int(i * brightness) for i in rgb_bright))
 
                 # Dark state goes dark
-                darkness = 1 - noise_plot.current_distance - 0.1
+                darkness = 1 - noise_plot.current_distance*3 - 0.1
                 if darkness < 0:
                     darkness = 0
                 rgb_dark = value_to_rgb(1-(freq_plot.values[1] + freq_plot.hybridization)) + (0,)
-                self.light_up_pixel(self.led_indices['dark'], tuple(int(i//darkness) for i in rgb_dark))
+                self.light_up_pixel(self.led_indices['dark'], tuple(int(i*darkness) for i in rgb_dark))
 
             if not self.button_d.value:
                 noise_plot.update_value(0.1)
 
                 # Update the LED with brightness and darkness mapped to the distance
-                brightness = noise_plot.current_distance + 0.1
+                brightness = noise_plot.current_distance*3 + 0.1
+                if brightness > 1:
+                    brightness = 1
                 rgb_bright = value_to_rgb(1-(freq_plot.values[1] - freq_plot.hybridization)) + (0,)
                 self.light_up_pixel(self.led_indices['bright'], tuple(int(i * brightness) for i in rgb_bright))
 
                 # Dark state goes dark
-                darkness = 1 - noise_plot.current_distance - 0.1
+                darkness = 1 - noise_plot.current_distance*3 - 0.1
                 if darkness < 0:
                     darkness = 0
-                rgb_dark = value_to_rgb(1-(freq_plot.values[1] + freq_plot.hybridization)) + (0,)
-                self.light_up_pixel(self.led_indices['dark'], tuple(int(i//darkness) for i in rgb_dark))
 
-            if noise_plot.current_distance <= 0.1:
+                rgb_dark = value_to_rgb(1-(freq_plot.values[1] + freq_plot.hybridization)) + (0,)
+                self.light_up_pixel(self.led_indices['dark'], tuple(int(i*darkness) for i in rgb_dark))
+
+            if noise_plot.current_distance <= 0.15:
                 print('Second game done!')
                 success_img = Image.new('1', (width, height))
                 success_draw = ImageDraw.Draw(success_img)
                 success_draw.text((16, 32), 'Second game done! :)', fill=1)
                 self.disp.image(success_img)
                 self.disp.show()
-                time.sleep(5)
+                time.sleep(3)
                 success = True
+                return
 
             self.disp.image(noise_plot.main_img)
+            self.image = noise_plot.main_img
             self.disp.show()
+
             # TO BE IMPLEMENTED: success check
-            success = self.check_bypasses()
+
             time.sleep(FRAME_TIME)
 
     def light_up_pixel(self, index, color):
@@ -630,8 +648,9 @@ class PhDHat:
 
     def finish_stage(self):
         self._display_text_on_screen(
-            "You made it!\nCode: 123"
+            "You made it!\nMove to\ntreasure", sleep=10
         )
+        self._display_text_on_screen("Code hint:\nQudev Sola #")
         print('Game over.')
 
 
